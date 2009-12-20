@@ -11,7 +11,8 @@
 -export([init/1]).
 
 start_link(MaxWorkers, Module) ->
-    supervisor:start_link(connection_manager_s, [MaxWorkers, Module]).
+    io:format("manager supervisor stl ~p ~p ~p ~n", [self(), MaxWorkers, Module]),
+    supervisor:start_link({local, ?MODULE}, ?MODULE, [MaxWorkers, Module]).
     
 init([MaxWorkers, Module]) ->
     io:format("manager supervisor init ~p ~p ~p ~n", [self(), MaxWorkers, Module]),
@@ -24,24 +25,8 @@ init([MaxWorkers, Module]) ->
                   temporary,                               % Restart  = permanent | transient | temporary
                   brutal_kill,                             % Shutdown = brutal_kill | int() >= 0 | infinity
                   worker,                                  % Type     = worker | supervisor
-                  []                                       % Modules  = [Module] | dynamic
+                  [Module]                                       % Modules  = [Module] | dynamic
               }
             ]
     }.
-%init([Module]) ->
-%    {ok,
-%        {
-%            {simple_one_for_one, 1, 60},
-%            [
-%              % worker
-%              {   undefined,                               % Id       = internal id
-%                  {Module, start_link,[connectorN]},                  % StartFun = {M, F, A}
-%                  temporary,                               % Restart  = permanent | transient | temporary
-%                  2000,                                    % Shutdown = brutal_kill | int() >= 0 | infinity
-%                  worker,                                  % Type     = worker | supervisor
-%                  []                                       % Modules  = [Module] | dynamic
-%              }
-%            ]
-%        }
-%    }.    
     

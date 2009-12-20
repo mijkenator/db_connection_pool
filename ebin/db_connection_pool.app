@@ -3,8 +3,8 @@
   {description, "db_connection_pool"},
   {vsn, "0.01"},
   {id, "db_connection_pool"},
-  {modules,      [connection_manager, db_connector]},
-  {registered,   [connection_sup, connection_manager_s, connector1]},
+  {modules,      [connection_manager, db_connector, connection_sup]},
+  {registered,   [connection_sup, connection_manager, connector1]},
   {applications, [kernel, stdlib]},
   %%
   %% mod: Specify the module name to start the application, plus args
