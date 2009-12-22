@@ -5,28 +5,39 @@
 %%%-------------------------------------------------------------------
 -module(connection_manager).
 
--behaviour(supervisor).
-
 -export([start_link/2]).
--export([init/1]).
+-export([init/1, code_change/3, handle_call/3, handle_cast/2, handle_info/2, terminate/2]).
 
-start_link(MaxWorkers, Module) ->
-    io:format("manager supervisor stl ~p ~p ~p ~n", [self(), MaxWorkers, Module]),
-    supervisor:start_link({local, ?MODULE}, ?MODULE, [MaxWorkers, Module]).
+-compile(export_all).
+-behaviour(gen_server).
+
+-record(connector_state,
+    {   workername,
+        wokrnumber,
+        configitem,
+        maxworkers,
+        workermod,
+        url,
+        counter=0}).
     
-init([MaxWorkers, Module]) ->
-    io:format("manager supervisor init ~p ~p ~p ~n", [self(), MaxWorkers, Module]),
-    {ok,
-        {one_for_one, 1, 60},
-            [
-              % worker
-              {   connector1,                              % Id       = internal id
-                  {Module, start_link, [connector1]},      % StartFun = {M, F, A}
-                  temporary,                               % Restart  = permanent | transient | temporary
-                  brutal_kill,                             % Shutdown = brutal_kill | int() >= 0 | infinity
-                  worker,                                  % Type     = worker | supervisor
-                  [Module]                                       % Modules  = [Module] | dynamic
-              }
-            ]
-    }.
+start_link(MaxWorkers, Module) ->
+    io:format("connection_manager started ~p ~p ~n", [MaxWorkers, Module]),
+    gen_server:start_link({local, connection_manager},
+        ?MODULE, #connector_state{maxworkers = MaxWorkers, workermod = Module}, []).
+
+init(Args) ->
+  io:format("connection_manager init callback launched ~p ~n", [Args]),
+  {ok, Args}.
+  
+handle_cast(Msg, State) ->
+    io:format("connection_manager unknown cast !!!! ~p ~p ~n", [Msg, State]),
+    {noreply, State}.
+
+% These are just here to suppress warnings.
+handle_call(_Msg, _Caller, State) -> {noreply, State}.
+handle_info(_Msg, State) -> {noreply, State}.
+terminate(_Reason, _State) -> ok.
+code_change(_OldVersion, State, _Extra) -> {ok, State}.
+
+
     

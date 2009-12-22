@@ -10,10 +10,7 @@
 -export([start/2, stop/1]).
 
 
-start(_Type, _Args) ->
-    io:format("connection pool application start ~n"),
-    Ret = connection_sup:start_link(10, db_connector),
-    Ret.
+start(_Type, _Args) -> connection_sup:start_link(10, db_connector).
 
 stop(_S) -> ok.
 

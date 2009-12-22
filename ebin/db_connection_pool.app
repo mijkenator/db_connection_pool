@@ -3,7 +3,7 @@
   {description, "db_connection_pool"},
   {vsn, "0.01"},
   {id, "db_connection_pool"},
-  {modules,      [connection_manager, db_connector, connection_sup]},
+  {modules,      [connection_manager, connection_sup]},
   {registered,   [connection_sup, connection_manager, connector1]},
   {applications, [kernel, stdlib]},
   %%
