@@ -29,12 +29,24 @@ init(Args) ->
   io:format("connection_manager init callback launched ~p ~n", [Args]),
   {ok, Args}.
   
+
+handle_cast({command, make_pool},
+    #connector_state{maxworkers = MaxWorkers, workermod = Module} = State) ->
+    io:format("connection_manager -> make pool ~p ~p ~n", [MaxWorkers, Module]),
+    lists:foreach(fun(X)
+        connection_sup:start_client(Module,
+            list_to_atom(string:concat("dbconnector",integer_to_list(X)))) -> end,
+                lists:seq(1, MaxWorkers)),
+    {noreply, State};
 handle_cast(Msg, State) ->
     io:format("connection_manager unknown cast !!!! ~p ~p ~n", [Msg, State]),
     {noreply, State}.
 
-% These are just here to suppress warnings.
-handle_call(_Msg, _Caller, State) -> {noreply, State}.
+handle_call(_Msg, _Caller, State) ->
+    io:format("connection_manager unknown call !!!! ~p ~p ~p ~n", [_Msg, _Caller, State]),
+    {noreply, State}.
+    
+% These are just here to suppress warnings.    
 handle_info(_Msg, State) -> {noreply, State}.
 terminate(_Reason, _State) -> ok.
 code_change(_OldVersion, State, _Extra) -> {ok, State}.
