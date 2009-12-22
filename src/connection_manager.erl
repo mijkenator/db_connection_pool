@@ -33,9 +33,9 @@ init(Args) ->
 handle_cast({command, make_pool},
     #connector_state{maxworkers = MaxWorkers, workermod = Module} = State) ->
     io:format("connection_manager -> make pool ~p ~p ~n", [MaxWorkers, Module]),
-    lists:foreach(fun(X)
+    lists:foreach(fun(X) ->
         connection_sup:start_client(Module,
-            list_to_atom(string:concat("dbconnector",integer_to_list(X)))) -> end,
+            list_to_atom(string:concat("dbconnector",integer_to_list(X)))) end,
                 lists:seq(1, MaxWorkers)),
     {noreply, State};
 handle_cast(Msg, State) ->
