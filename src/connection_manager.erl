@@ -69,5 +69,17 @@ code_change(_OldVersion, State, _Extra) -> {ok, State}.
 get_connector(MaxWorkers) ->
     list_to_atom(string:concat("dbconnector",
         integer_to_list(random:uniform(MaxWorkers)))).
+        
+smart_get_connector(MaxWorkers) ->
+    {Qsize, RegName} = lists:min(lists:map(
+        fun(X) ->
+            RegName = list_to_atom(string:concat("dbconnector", integer_to_list(X))),
+            {message_queue_len, Len} =
+                process_info(whereis(RegName), message_queue_len),
+            {Len, RegName}
+        end,
+        lists:seq(1, MaxWorkers))),
+    RegName.
+
 
     
