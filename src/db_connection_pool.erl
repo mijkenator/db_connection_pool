@@ -11,6 +11,7 @@
 
 
 start(_Type, _Args) ->
+    odbc:start(),
     case connection_sup:start_link(10, db_connector) of
         {ok, Pid} ->
             io:format("Connection pool started OK ~n"),

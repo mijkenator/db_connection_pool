@@ -38,6 +38,20 @@ handle_cast({command, make_pool},
             list_to_atom(string:concat("dbconnector",integer_to_list(X)))) end,
                 lists:seq(1, MaxWorkers)),
     {noreply, State};
+handle_cast({ret_sql_query, From, Guid, Ret}, State) ->
+    From ! {ret_sql_query, Guid, Ret},
+    {noreply, State};
+handle_cast({ret_param_query, From, Guid, Ret}, State) ->
+    From ! {ret_param_query, Guid, Ret},
+    {noreply, State};
+handle_cast({do_sql_query, From, Guid, SqlSt},
+    #connector_state{ maxworkers = MaxWorkers } = State) ->
+    gen_server:cast(get_connector(MaxWorkers) ,{do_sql_query, From, Guid, SqlSt}),
+    {noreply, State};
+handle_cast({do_param_query, From, Guid, SqlSt, Params},
+    #connector_state{ maxworkers = MaxWorkers } = State) ->
+    gen_server:cast(get_connector(MaxWorkers) ,{do_sql_query, From, Guid, SqlSt, Params}),
+    {noreply, State};
 handle_cast(Msg, State) ->
     io:format("connection_manager unknown cast !!!! ~p ~p ~n", [Msg, State]),
     {noreply, State}.
@@ -51,5 +65,9 @@ handle_info(_Msg, State) -> {noreply, State}.
 terminate(_Reason, _State) -> ok.
 code_change(_OldVersion, State, _Extra) -> {ok, State}.
 
+
+get_connector(MaxWorkers) ->
+    list_to_atom(string:concat("dbconnector",
+        integer_to_list(random:uniform(MaxWorkers)))).
 
     

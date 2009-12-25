@@ -15,19 +15,35 @@
 
 -record(connector_state,
     {   workername,
-        wokrnumber,
-        configitem,
-        url,
+        reconnect_count=0,
+        dbh,
         counter=0}).
         
 start_link(WorkerName) ->
     gen_server:start_link({local, WorkerName},?MODULE,
-        #connector_state{workername = WorkerName, counter=0}, []).
+        #connector_state{workername = WorkerName}, []).
 
 init(Args) ->
   io:format("db connector init callback launched ~p ~n", [Args]),
-  {ok, Args}.
+  {ok, Ref} = odbc:connect("DSN=wish;UID=wish;PWD=wish", []),
+  {ok, Args#connector_state{dbh = Ref}}.
 
+
+
+handle_cast({do_sql_query, From, Guid, SqlSt},
+    #connector_state{dbh = Ref, reconnect_count= Rc} = State) ->
+    io:format("do_sql_query  cast !!!! ~p ~p ~n", [Guid, SqlSt]),
+    Ret = odbc:sql_query(Ref, SqlSt),
+    io:format("do_sql_query  ret ~p ~n", [Ret]),
+    gen_server:cast(connection_manager, {ret_sql_query, From, Guid, Ret}), 
+    {noreply, State};
+handle_cast({do_param_query, From, Guid, SqlSt, Params},
+    #connector_state{dbh = Ref, reconnect_count= Rc} = State) ->
+    io:format("do_param_query  cast !!!! ~p ~p ~p ~n", [Guid, SqlSt, Params]),
+    Ret = odbc:param_query(Ref, SqlSt, Params),
+    io:format("do_param_query  ret ~p ~n", [Ret]),
+    gen_server:cast(connection_manager, {ret_param_query, From, Guid, Ret}), 
+    {noreply, State};
 handle_cast(Msg, State) ->
     io:format("db connector unknown cast !!!! ~p ~p ~n", [Msg, State]),
     {noreply, State}.
