@@ -29,21 +29,22 @@ init(Args) ->
   {ok, Args#connector_state{dbh = Ref}}.
 
 
-
 handle_cast({do_sql_query, From, Guid, SqlSt},
-    #connector_state{dbh = Ref, reconnect_count= Rc,
+    #connector_state{dbh = Ref, reconnect_count= _Rc,
     workername = WorkerName, counter = Counter} = State) ->
     Ret = odbc:sql_query(Ref, SqlSt),
     io:format("do_sql_query ret ~p -> ~p ~n", [WorkerName, Ret]),
     gen_server:cast(connection_manager, {ret_sql_query, From, Guid, Ret}), 
     {noreply, State#connector_state{counter = Counter + 1}};
+    
 handle_cast({do_param_query, From, Guid, SqlSt, Params},
-    #connector_state{dbh = Ref, reconnect_count= Rc, counter = Counter} = State) ->
+    #connector_state{dbh = Ref, reconnect_count= _Rc, counter = Counter} = State) ->
     io:format("do_param_query  cast !!!! ~p ~p ~p ~n", [Guid, SqlSt, Params]),
     Ret = odbc:param_query(Ref, SqlSt, Params),
     io:format("do_param_query  ret ~p ~n", [Ret]),
     gen_server:cast(connection_manager, {ret_param_query, From, Guid, Ret}), 
     {noreply, State#connector_state{counter = Counter + 1}};
+    
 handle_cast(Msg, State) ->
     io:format("db connector unknown cast !!!! ~p ~p ~n", [Msg, State]),
     {noreply, State}.

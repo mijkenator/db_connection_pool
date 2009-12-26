@@ -12,12 +12,13 @@
 
 start_client(Module, Name) ->
     supervisor:start_child(connection_sup,
-        {Name, {Module, start_link, [Name]}, temporary, 2000, worker, [Module]}).
+        {Name, {Module, start_link, [Name]}, permanent, 2000, worker, [Module]}).
 
 start_link(MaxWorkers, Module) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, [MaxWorkers, Module]).
     
 init([MaxWorkers, Module]) ->
+    io:format("main init for connection_sup ~n"),
     {ok,
         {
           {one_for_one, 1, 60},

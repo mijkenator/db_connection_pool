@@ -12,13 +12,10 @@
 -behaviour(gen_server).
 
 -record(connector_state,
-    {   workername,
-        wokrnumber,
-        configitem,
-        maxworkers,
+      { maxworkers,
         workermod,
-        url,
-        counter=0}).
+        workers_list,
+        limit_workers = 100 }).
     
 start_link(MaxWorkers, Module) ->
     io:format("connection_manager started ~p ~p ~n", [MaxWorkers, Module]),
@@ -33,25 +30,60 @@ init(Args) ->
 handle_cast({command, make_pool},
     #connector_state{maxworkers = MaxWorkers, workermod = Module} = State) ->
     io:format("connection_manager -> make pool ~p ~p ~n", [MaxWorkers, Module]),
-    lists:foreach(fun(X) ->
-        connection_sup:start_client(Module,
-            list_to_atom(string:concat("dbconnector",integer_to_list(X)))) end,
-                lists:seq(1, MaxWorkers)),
-    {noreply, State};
+    WorkersList = lists:map(
+        fun(X) ->
+            list_to_atom(string:concat("dbconnector",integer_to_list(X)))
+        end, lists:seq(1, MaxWorkers)),
+    lists:foreach(
+        fun(X) ->
+            connection_sup:start_client(Module, X)
+        end, WorkersList),
+    {noreply, State#connector_state{ workers_list = WorkersList }};
+    
+%handle_cast({command, {command, increase_workers}},
+%    #connector_state{maxworkers = MaxWorkers, workermod = Module,
+%       workers_list = WorkersList, limit_workers = LimitWorkers } = State) ->
+%    io:format("increase workers list ~n"),
+%    AddWorkers = fun(Begin, End) ->
+%        AddWorkersList = lists:map(
+%            fun(X) ->
+%                list_to_atom(string:concat("dbconnector",integer_to_list(X)))
+%            end, lists:seq(Begin, End)),
+%        lists:foreach(
+%            fun(X) ->
+%                connection_sup:start_client(Module, X)
+%            end, AddWorkersList),
+%        AddWorkersList
+%    end,
+%    if
+%        LimitWorkers >= length(WorkersList) + 10 ->
+%        LimitWorkers =< length(WorkersList) -> false;
+%        LimitWorkers < length(WorkersList) + 10  ->
+%    end,
+%    {noreply, State#connector_state{ workers_list = WorkersList }};
+    
 handle_cast({ret_sql_query, From, Guid, Ret}, State) ->
     From ! {ret_sql_query, Guid, Ret},
     {noreply, State};
+    
 handle_cast({ret_param_query, From, Guid, Ret}, State) ->
     From ! {ret_param_query, Guid, Ret},
     {noreply, State};
+    
 handle_cast({do_sql_query, From, Guid, SqlSt},
-    #connector_state{ maxworkers = MaxWorkers } = State) ->
-    gen_server:cast(get_connector(MaxWorkers) ,{do_sql_query, From, Guid, SqlSt}),
+    #connector_state{ maxworkers = _MaxWorkers,
+        workers_list = WorkersList, limit_workers = LimitWorkers } = State) ->
+    gen_server:cast(smart_get_connector(WorkersList, LimitWorkers) ,
+        {do_sql_query, From, Guid, SqlSt}),
     {noreply, State};
+    
 handle_cast({do_param_query, From, Guid, SqlSt, Params},
-    #connector_state{ maxworkers = MaxWorkers } = State) ->
-    gen_server:cast(get_connector(MaxWorkers) ,{do_sql_query, From, Guid, SqlSt, Params}),
+    #connector_state{ maxworkers = _MaxWorkers,
+        workers_list = WorkersList, limit_workers = LimitWorkers } = State) ->
+    gen_server:cast(smart_get_connector(WorkersList, LimitWorkers) ,
+        {do_sql_query, From, Guid, SqlSt, Params}),
     {noreply, State};
+    
 handle_cast(Msg, State) ->
     io:format("connection_manager unknown cast !!!! ~p ~p ~n", [Msg, State]),
     {noreply, State}.
@@ -65,21 +97,18 @@ handle_info(_Msg, State) -> {noreply, State}.
 terminate(_Reason, _State) -> ok.
 code_change(_OldVersion, State, _Extra) -> {ok, State}.
 
-
-get_connector(MaxWorkers) ->
-    list_to_atom(string:concat("dbconnector",
-        integer_to_list(random:uniform(MaxWorkers)))).
-        
-smart_get_connector(MaxWorkers) ->
+smart_get_connector(WorkersList, LimitWorkers) ->
     {Qsize, RegName} = lists:min(lists:map(
         fun(X) ->
-            RegName = list_to_atom(string:concat("dbconnector", integer_to_list(X))),
             {message_queue_len, Len} =
-                process_info(whereis(RegName), message_queue_len),
-            {Len, RegName}
+                process_info(whereis(X), message_queue_len),
+            {Len, X}
         end,
-        lists:seq(1, MaxWorkers))),
+        WorkersList)),
+    if
+        Qsize > 4, LimitWorkers > length(WorkersList) ->
+            gen_server:cast(connection_manager, {command, increase_workers})
+    end,
     RegName.
-
 
     
