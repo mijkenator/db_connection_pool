@@ -26,4 +26,4 @@ do_sql_tests() ->
     lists:foreach(fun(X) -> MyTest(X) end, lists:seq(1, 20)).
     
 do_mt_sql_tests() ->
-    lists:foreach(fun(X) -> spawn(fun() -> do_sql_tests() end) end, lists:seq(1, 20)).
+    lists:foreach(fun(_X) -> spawn(fun() -> do_sql_tests() end) end, lists:seq(1, 20)).

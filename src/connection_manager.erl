@@ -40,27 +40,36 @@ handle_cast({command, make_pool},
         end, WorkersList),
     {noreply, State#connector_state{ workers_list = WorkersList }};
     
-%handle_cast({command, {command, increase_workers}},
-%    #connector_state{maxworkers = MaxWorkers, workermod = Module,
-%       workers_list = WorkersList, limit_workers = LimitWorkers } = State) ->
-%    io:format("increase workers list ~n"),
-%    AddWorkers = fun(Begin, End) ->
-%        AddWorkersList = lists:map(
-%            fun(X) ->
-%                list_to_atom(string:concat("dbconnector",integer_to_list(X)))
-%            end, lists:seq(Begin, End)),
-%        lists:foreach(
-%            fun(X) ->
-%                connection_sup:start_client(Module, X)
-%            end, AddWorkersList),
-%        AddWorkersList
-%    end,
-%    if
-%        LimitWorkers >= length(WorkersList) + 10 ->
-%        LimitWorkers =< length(WorkersList) -> false;
-%        LimitWorkers < length(WorkersList) + 10  ->
-%    end,
-%    {noreply, State#connector_state{ workers_list = WorkersList }};
+handle_cast({command, {command, increase_workers}},
+    #connector_state{maxworkers = _MaxWorkers, workermod = Module,
+       workers_list = WorkersList, limit_workers = LimitWorkers } = State) ->
+    io:format("increase workers list ~n"),
+    AddWorkers = fun(Begin, End) ->
+        AddWorkersList = lists:map(
+            fun(X) ->
+                list_to_atom(string:concat("dbconnector",integer_to_list(X)))
+            end, lists:seq(Begin, End)),
+        lists:foreach(
+            fun(X) ->
+                connection_sup:start_client(Module, X)
+            end, AddWorkersList),
+        io:format("aditional list: ~p ~n", [AddWorkersList]),
+        AddWorkersList
+    end,
+    if
+        LimitWorkers >= length(WorkersList) + 10    ->
+            NewWorkersList = lists:append(WorkersList,
+                AddWorkers(length(WorkersList)+1,
+                    length(WorkersList) + 10));
+        LimitWorkers =< length(WorkersList)         ->
+            NewWorkersList = WorkersList;
+        LimitWorkers < length(WorkersList) + 10     ->
+            NewWorkersList = lists:append(WorkersList,
+                AddWorkers(length(WorkersList)+1, LimitWorkers));
+        true                                        ->
+            NewWorkersList = WorkersList
+    end,
+    {noreply, State#connector_state{ workers_list = NewWorkersList }};
     
 handle_cast({ret_sql_query, From, Guid, Ret}, State) ->
     From ! {ret_sql_query, Guid, Ret},
@@ -107,7 +116,8 @@ smart_get_connector(WorkersList, LimitWorkers) ->
         WorkersList)),
     if
         Qsize > 4, LimitWorkers > length(WorkersList) ->
-            gen_server:cast(connection_manager, {command, increase_workers})
+            gen_server:cast(connection_manager, {command, increase_workers});
+        true -> true
     end,
     RegName.
 
